@@ -50,11 +50,13 @@ def _extract_keyword_tags(title: str, limit: int = 4) -> list:
     return tags
 
 
+BRAND_NAME = "AravindNews24"
+
+
 def generate(article: dict) -> str:
     category = article.get("category", "world")
     title = article.get("title", "").strip()
     description = article.get("description", "").strip()
-    source = article.get("source", "")
 
     emoji = CATEGORY_EMOJI.get(category, "📰")
 
@@ -71,9 +73,7 @@ def generate(article: dict) -> str:
         lines.append("")
         lines.append(teaser)
     lines.append("")
-    lines.append("Follow for real-time news updates 🔔")
-    if source:
-        lines.append(f"(Source: {source})")
+    lines.append(f"Follow {BRAND_NAME} for real-time news updates 🔔")
 
     hashtags = []
     hashtags.extend(CATEGORY_BASE_TAGS.get(category, []))
@@ -102,6 +102,5 @@ if __name__ == "__main__":
         "title": "Reserve Bank of India Cuts Interest Rates Amid Global Slowdown",
         "description": "The RBI announced a surprise rate cut today as it looks to boost economic growth amid slowing global demand.",
         "category": "business",
-        "source": "Sample Source",
     }
     print(generate(sample))

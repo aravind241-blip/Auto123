@@ -15,6 +15,7 @@ Returns a de-duplicated, normalized list of article dicts:
 """
 
 import os
+import re
 import hashlib
 import datetime
 import requests
@@ -94,10 +95,42 @@ def _from_gnews(category: str) -> list:
                 "category": category,
                 "published_at": a.get("publishedAt")
                 or datetime.datetime.utcnow().isoformat(),
+                "image_url": (a.get("image") or "").strip() or None,
                 "uid": _make_uid(title, url),
             }
         )
     return articles
+
+
+def _extract_rss_image(entry) -> str:
+    """Best-effort extraction of an article thumbnail from an RSS/Atom entry."""
+    # media:thumbnail / media:content (feedparser exposes these directly)
+    media_thumb = entry.get("media_thumbnail")
+    if media_thumb:
+        url = media_thumb[0].get("url")
+        if url:
+            return url
+
+    media_content = entry.get("media_content")
+    if media_content:
+        url = media_content[0].get("url")
+        if url:
+            return url
+
+    # <enclosure> tags
+    for enc in entry.get("enclosures", []) or []:
+        if str(enc.get("type", "")).startswith("image") or enc.get("href", "").lower().endswith(
+            (".jpg", ".jpeg", ".png", ".webp")
+        ):
+            return enc.get("href")
+
+    # Sometimes an <img> is embedded in the summary/content HTML
+    html_blob = entry.get("summary", "") or ""
+    match = re.search(r'<img[^>]+src="([^"]+)"', html_blob)
+    if match:
+        return match.group(1)
+
+    return None
 
 
 def _from_rss(category: str) -> list:
@@ -117,6 +150,7 @@ def _from_rss(category: str) -> list:
             if not title or not url:
                 continue
             description = (entry.get("summary") or entry.get("description") or "").strip()
+            description = re.sub(r"<[^>]+>", "", description).strip()  # strip HTML tags
             published = entry.get("published", "") or datetime.datetime.utcnow().isoformat()
             articles.append(
                 {
@@ -126,6 +160,7 @@ def _from_rss(category: str) -> list:
                     "source": source_name,
                     "category": category,
                     "published_at": published,
+                    "image_url": _extract_rss_image(entry),
                     "uid": _make_uid(title, url),
                 }
             )
